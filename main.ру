@@ -1,103 +1,70 @@
 import numpy as np
 import pandas as pd
-
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-# =============================
-# SolarShield AI - Console MVP
-# =============================
+np.random.seed(42)
 
-def build_dataset(seed=42, data_size=800):
-    np.random.seed(seed)
+def make_data(n=600):
+    solar_flux = np.random.normal(150, 50, n)
+    magnetic = np.random.normal(5, 2, n)
+    wind = np.random.normal(400, 100, n)
 
-    solar_flux = np.random.normal(150, 50, data_size)
-    magnetic_index = np.random.normal(5, 2, data_size)
-    solar_wind_speed = np.random.normal(400, 100, data_size)
+    storm = ((solar_flux > 180) & (magnetic > 6) & (wind > 450)).astype(int)
 
-    storm = (
-        (solar_flux > 180) &
-        (magnetic_index > 6) &
-        (solar_wind_speed > 450)
-    ).astype(int)
-
-    df = pd.DataFrame({
+    return pd.DataFrame({
         "solar_flux": solar_flux,
-        "magnetic_index": magnetic_index,
-        "solar_wind_speed": solar_wind_speed,
+        "magnetic_index": magnetic,
+        "solar_wind_speed": wind,
         "storm": storm
     })
-    return df
 
-def train_model(df):
+def train():
+    df = make_data()
     X = df[["solar_flux", "magnetic_index", "solar_wind_speed"]]
     y = df["storm"]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    model = RandomForestClassifier(
-        n_estimators=200,
-        random_state=42,
-        class_weight="balanced"
-    )
+    model = RandomForestClassifier(n_estimators=150, random_state=42)
     model.fit(X_train, y_train)
 
-    pred = model.predict(X_test)
-    acc = accuracy_score(y_test, pred)
-
-    print("✅ Model accuracy:", round(acc, 3))
-    print("\nConfusion matrix:")
-    print(confusion_matrix(y_test, pred))
-
-    print("\nClassification report:")
-    print(classification_report(y_test, pred, digits=3))
-
+    acc = model.score(X_test, y_test)
+    print(f"Model accuracy: {acc:.2f}")
     return model
 
-def predict_risk(model, solar_flux_val, magnetic_index_val, solar_wind_speed_val, threshold=0.6):
-    sample = pd.DataFrame({
-        "solar_flux": [solar_flux_val],
-        "magnetic_index": [magnetic_index_val],
-        "solar_wind_speed": [solar_wind_speed_val]
-    })
-    proba = model.predict_proba(sample)[0][1]
-    percent = round(proba * 100, 1)
-
-    if proba >= threshold:
-        return f"⚠ High risk of solar storm: {percent}%"
-    return f"✅ Low risk: {percent}%"
-
-def read_float(prompt):
+def ask_number(text):
     while True:
         try:
-            return float(input(prompt).strip().replace(",", "."))
-        except ValueError:
-            print("❌ Please enter a number (example: 180 or 180.5)")
+            return float(input(text).strip().replace(",", "."))
+        except:
+            print("Введите число, например 180 или 180.5")
 
 def main():
-    print("=== SolarShield AI (Console MVP) ===")
-    print("Enter parameters to estimate solar storm risk.\n")
-
-    df = build_dataset()
-    model = train_model(df)
-
-    print("\n--- Interactive mode ---")
-    print("Tip: try (200, 7, 500) for high risk.\n")
+    print("SolarShield AI — console MVP\n")
+    model = train()
 
     while True:
-        solar_flux_val = read_float("Solar flux: ")
-        magnetic_index_val = read_float("Magnetic index: ")
-        solar_wind_speed_val = read_float("Solar wind speed: ")
+        f = ask_number("Solar flux: ")
+        m = ask_number("Magnetic index: ")
+        w = ask_number("Solar wind speed: ")
 
-        result = predict_risk(model, solar_flux_val, magnetic_index_val, solar_wind_speed_val)
-        print("\nResult:", result)
+        sample = pd.DataFrame({
+            "solar_flux": [f],
+            "magnetic_index": [m],
+            "solar_wind_speed": [w]
+        })
 
-        again = input("\nCheck another? (y/n): ").strip().lower()
+        risk = model.predict_proba(sample)[0][1] * 100
+        print(f"\nRisk of solar storm: {risk:.1f}%")
+
+        if risk >= 60:
+            print("⚠ Warning: high risk!")
+        else:
+            print("✅ Low risk.")
+
+        again = input("\nЕще раз? (y/n): ").lower().strip()
         if again not in ("y", "yes", "д", "да"):
-            print("Bye! 🚀")
             break
         print()
 
