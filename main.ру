@@ -1,59 +1,105 @@
-# SolarShield AI MVP
-# Простая модель прогнозирования солнечной бури
-
 import numpy as np
 import pandas as pd
+
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-# Создаем искусственный датасет
-np.random.seed(42)
+# =============================
+# SolarShield AI - Console MVP
+# =============================
 
-data_size = 500
+def build_dataset(seed=42, data_size=800):
+    np.random.seed(seed)
 
-solar_flux = np.random.normal(150, 50, data_size)
-magnetic_index = np.random.normal(5, 2, data_size)
-solar_wind_speed = np.random.normal(400, 100, data_size)
+    solar_flux = np.random.normal(150, 50, data_size)
+    magnetic_index = np.random.normal(5, 2, data_size)
+    solar_wind_speed = np.random.normal(400, 100, data_size)
 
-# Если значения высокие — считаем это бурей
-storm = (
-    (solar_flux > 180) & 
-    (magnetic_index > 6) & 
-    (solar_wind_speed > 450)
-).astype(int)
+    storm = (
+        (solar_flux > 180) &
+        (magnetic_index > 6) &
+        (solar_wind_speed > 450)
+    ).astype(int)
 
-df = pd.DataFrame({
-    "solar_flux": solar_flux,
-    "magnetic_index": magnetic_index,
-    "solar_wind_speed": solar_wind_speed,
-    "storm": storm
-})
+    df = pd.DataFrame({
+        "solar_flux": solar_flux,
+        "magnetic_index": magnetic_index,
+        "solar_wind_speed": solar_wind_speed,
+        "storm": storm
+    })
+    return df
 
-X = df[["solar_flux", "magnetic_index", "solar_wind_speed"]]
-y = df["storm"]
+def train_model(df):
+    X = df[["solar_flux", "magnetic_index", "solar_wind_speed"]]
+    y = df["storm"]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
 
-model = RandomForestClassifier()
-model.fit(X_train, y_train)
+    model = RandomForestClassifier(
+        n_estimators=200,
+        random_state=42,
+        class_weight="balanced"
+    )
+    model.fit(X_train, y_train)
 
-predictions = model.predict(X_test)
+    pred = model.predict(X_test)
+    acc = accuracy_score(y_test, pred)
 
-accuracy = accuracy_score(y_test, predictions)
+    print("✅ Model accuracy:", round(acc, 3))
+    print("\nConfusion matrix:")
+    print(confusion_matrix(y_test, pred))
 
-print("Model accuracy:", accuracy)
+    print("\nClassification report:")
+    print(classification_report(y_test, pred, digits=3))
 
-# Тестовый прогноз
-sample = pd.DataFrame({
-    "solar_flux": [200],
-    "magnetic_index": [7],
-    "solar_wind_speed": [500]
-})
+    return model
 
-prediction = model.predict(sample)
+def predict_risk(model, solar_flux_val, magnetic_index_val, solar_wind_speed_val, threshold=0.6):
+    sample = pd.DataFrame({
+        "solar_flux": [solar_flux_val],
+        "magnetic_index": [magnetic_index_val],
+        "solar_wind_speed": [solar_wind_speed_val]
+    })
+    proba = model.predict_proba(sample)[0][1]
+    percent = round(proba * 100, 1)
 
-if prediction[0] == 1:
-    print("⚠ High probability of solar storm!")
-else:
-    print("✅ Low solar activity.")
+    if proba >= threshold:
+        return f"⚠ High risk of solar storm: {percent}%"
+    return f"✅ Low risk: {percent}%"
+
+def read_float(prompt):
+    while True:
+        try:
+            return float(input(prompt).strip().replace(",", "."))
+        except ValueError:
+            print("❌ Please enter a number (example: 180 or 180.5)")
+
+def main():
+    print("=== SolarShield AI (Console MVP) ===")
+    print("Enter parameters to estimate solar storm risk.\n")
+
+    df = build_dataset()
+    model = train_model(df)
+
+    print("\n--- Interactive mode ---")
+    print("Tip: try (200, 7, 500) for high risk.\n")
+
+    while True:
+        solar_flux_val = read_float("Solar flux: ")
+        magnetic_index_val = read_float("Magnetic index: ")
+        solar_wind_speed_val = read_float("Solar wind speed: ")
+
+        result = predict_risk(model, solar_flux_val, magnetic_index_val, solar_wind_speed_val)
+        print("\nResult:", result)
+
+        again = input("\nCheck another? (y/n): ").strip().lower()
+        if again not in ("y", "yes", "д", "да"):
+            print("Bye! 🚀")
+            break
+        print()
+
+if __name__ == "__main__":
+    main()
