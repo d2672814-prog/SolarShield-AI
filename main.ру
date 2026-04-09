@@ -1,72 +1,46 @@
+import streamlit as st
 import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 
 np.random.seed(42)
 
-def make_data(n=600):
+@st.cache_resource
+def train_model():
+    n = 1500
     solar_flux = np.random.normal(150, 50, n)
-    magnetic = np.random.normal(5, 2, n)
-    wind = np.random.normal(400, 100, n)
+    magnetic = np.random.normal(4, 2, n)
+    wind_speed = np.random.normal(400, 120, n)
+    bz = np.random.uniform(-15, 15, n)
+    density = np.random.normal(5, 3, n)
 
-    storm = ((solar_flux > 180) & (magnetic > 6) & (wind > 450)).astype(int)
+    score = (wind_speed * 0.4) + (density * 20) - (bz * 30)
+    storm = (score > 600).astype(int)
 
-    return pd.DataFrame({
-        "solar_flux": solar_flux,
-        "magnetic_index": magnetic,
-        "solar_wind_speed": wind,
-        "storm": storm
-    })
+    X = np.column_stack([solar_flux, magnetic, wind_speed, bz, density])
 
-def train():
-    df = make_data()
-    X = df[["solar_flux", "magnetic_index", "solar_wind_speed"]]
-    y = df["storm"]
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    model = RandomForestClassifier(n_estimators=150, random_state=42)
-    model.fit(X_train, y_train)
-
-    acc = model.score(X_test, y_test)
-    print(f"Model accuracy: {acc:.2f}")
+    model = RandomForestClassifier(n_estimators=100, max_depth=8)
+    model.fit(X, storm)
     return model
 
-def ask_number(text):
-    while True:
-        try:
-            return float(input(text).strip().replace(",", "."))
-        except:
-            print("Введите число, например 180 или 180.5")
+model = train_model()
 
-def main():
-    print("SolarShield AI — console MVP\n")
-    model = train()
+st.title("SolarShield AI")
 
-    while True:
-        f = ask_number("Solar flux: ")
-        m = ask_number("Magnetic index: ")
-        w = ask_number("Solar wind speed: ")
+flux = st.number_input("Solar Flux", 50, 400, 150)
+kp = st.number_input("Magnit Index", 0, 9, 4)
+speed = st.number_input("Solar Wind Speed", 300, 1000, 400)
+bz = st.number_input("Bz", -50, 20, 0)
+density = st.number_input("Density", 0, 100, 5)
 
-        sample = pd.DataFrame({
-            "solar_flux": [f],
-            "magnetic_index": [m],
-            "solar_wind_speed": [w]
-        })
+if st.button("Analyz"):
+    X = [[flux, kp, speed, bz, density]]
+    prob = model.predict_proba(X)[0][1] * 100
 
-        risk = model.predict_proba(sample)[0][1] * 100
-        print(f"\nRisk of solar storm: {risk:.1f}%")
+    st.write(f"Risk: {prob:.1f}%")
 
-        if risk >= 60:
-            print("⚠ Warning: high risk!")
-        else:
-            print("✅ Low risk.")
-
-        again = input("\nЕще раз? (y/n): ").lower().strip()
-        if again not in ("y", "yes", "д", "да"):
-            break
-        print()
-
-if __name__ == "__main__":
-    main()
+    if prob >= 75:
+        st.error("Criticial")
+    elif prob >= 40:
+        st.warning("Warning")
+    else:
+        st.success("Stable")
