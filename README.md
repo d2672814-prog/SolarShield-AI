@@ -19,6 +19,3 @@ The model predicts probability of solar storms with ~97% accuracy.
 -streamlit
 -numpy
 -scikit-learn
-## Run
-pip install -r requirements.txt
-python main.py
