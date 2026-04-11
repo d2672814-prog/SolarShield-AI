@@ -16,9 +16,9 @@ We use a Random Forest model trained on solar activity parameters:
 The model predicts probability of solar storms with ~97% accuracy.
 
 ## Technologies
-- Python
-- Scikit-learn
-- Machine Learning
+-streamlit
+-numpy
+-scikit-learn
 ## Run
 pip install -r requirements.txt
 python main.py
